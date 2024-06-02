@@ -1,0 +1,449 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/data.csv')
+dat$logRT <-log(dat$timecollect)
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$traincondition<-'0'
+
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_a$traincondition<-'0' # initialization
+
+dat_a_train <-subset(dat_a, blockcollect=='train')
+dat_a$logRT <-log(dat_a$timecollect)
+dat$repetition<-rep(FALSE, nrow(dat))
+dat$nrep<-rep(0, nrow(dat))
+dat$immediaterepetition<-rep(FALSE, nrow(dat))
+dat_a$repetition<-rep(FALSE, nrow(dat_a))
+dat_a$nrep<-rep(0, nrow(dat_a))
+dat_a$immediaterepetition<-rep(FALSE, nrow(dat_a))
+
+
+# identify and mark exact repetition in the sequence
+for(id in unique(dat$ID)) {
+  thisparticipant<-dat[dat$ID == id & dat$blockcollect == 'train',] # training set
+  tc <- dat[dat$ID == id & dat$blockcollect == 'train',]$condition[2]
+  dat[dat$ID == id,]$traincondition<- rep(tc, 64*12)
+  dat_a[dat_a$ID == id,]$traincondition<- rep(tc, 64)
+  for (trial in 2:40){ # exclude the first trial
+    repetition<-FALSE
+    previousrepetition<-FALSE # exactly repeating the previous trial
+    for (prev in (trial-1):1){ # iterate through previous trials
+    if(identical(thisparticipant[thisparticipant$trialcollect == trial,]$instructioncollect,thisparticipant[thisparticipant$trialcollect == prev,]$instructioncollect)){
+      repetition<-TRUE
+      nr<-dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == prev,]$nrep + 1
+      if (prev == trial-1){previousrepetition<-TRUE}
+      break
+    }
+    }
+    if(repetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$nrep = nr
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$nrep = nr
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$repetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$repetition = TRUE
+    }
+    if(previousrepetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$immediaterepetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$immediaterepetition = TRUE
+
+    }    
+    }
+  }
+
+#full model
+dat_a_train<-dat_a[dat_a$blockcollect=='train',]
+dat_a_train$condition<-as.factor(dat_a_train$condition)
+dat_a_train$condition<-relevel(dat_a_train$condition,ref="ind")
+
+dat_train<-dat[dat$blockcollect == 'train',]
+
+
+
+dat$testcondition<-dat$condition
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='m1', 'm1-m1', 0)
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='m2', 'm1-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='ind', 'm1-ind', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='m2', 'm2-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='m1', 'm2-m1', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='ind', 'm2-ind', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='m1', 'ind-m1', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='m2', 'ind-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='ind', 'ind-ind', dat$transfer)
+
+
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-m1','m2-m2'),'same',0)
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-m2','m2-m1'),'diff',dat$transfertype)
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-ind','m2-ind'),'control',dat$transfertype)
+
+dat_test<-dat[dat$blockcollect == 'test',]
+se<-function(x){sd(x)/sqrt(length(x))}
+
+```
+
+
+
+```{r}
+library(scales)
+
+#null model doesn't contain condition, but fixed and random intercept
+#mnull<-lmer(timecollect ~ 1 + (1|ID), data=dat_train)
+#m1<-lmer(timecollect~ 1 + trialposition +(1|ID), data=dat_train)
+#m2<-lmer(timecollect~ 1 + trialposition + trialcollect +(1|ID), data=dat_train)
+#m3<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+(1|ID), data=dat_train)
+#m4<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+repetition+(1|ID), data=dat_train)
+#m5<-lmer(timecollect~ 1 +condition+ trialposition+trialcollect + chunkbeginning+repetition+ (1|ID), data=dat_train)
+# comment for the sake of speed
+
+# then compare the different fitting structures of random effects 
+dat_train$trialposition<-scale(dat_train$trialposition)
+dat_train$trialcollect<-scale(dat_train$trialcollect)[,1]
+dat_train$nrep<-scale(dat_train$nrep, scale = FALSE)
+
+m6<-lmer(timecollect~ 1 +condition*trialposition*trialcollect + chunkbeginning+repetition+ (1|ID), data=dat_train)
+
+m60<-lmer(timecollect~ 1 +condition*trialposition*trialcollect + chunkbeginning+repetition+ (1|ID), data=dat_train)
+
+m61<-lmer(timecollect~ 1 +condition*trialposition*trialcollect + chunkbeginning+repetition+ (1+trialcollect|ID), data=dat_train)
+
+m62<-lmer(timecollect~ 1 +condition*trialposition*trialcollect + chunkbeginning+repetition+ (1+trialposition|ID), data=dat_train)
+
+m63<-lmer(timecollect~ 1 +condition*trialposition*trialcollect + chunkbeginning+repetition+ (1+trialposition+trialcollect|ID), data=dat_train)
+
+anova(m60, m61)
+anova(m61, m62)
+anova(m60, m62)
+
+summary(m62)
+
+```
+```{r}
+# definitely recheck
+
+library(sjPlot) #for plotting lmer and glmer mods
+library(sjmisc) 
+library(effects)
+library(sjstats) #use for r2 functions
+
+p1<-sjPlot::plot_model(m62,terms = c("conditionm1","conditionm2","conditionm1:trialcollect","conditionm2:trialcollect","chunkbeginning"), transform = NULL,show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE,  show.data= TRUE, vline.color = 'gray', color = 'blue', axis.labels=c("Motif 2 x Trial ID", "Motif 1 x Trial ID", "Chunk Beginning", "Motif 2", "Motif 1"),title="Regression Coefficients", ) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "none") 
+
+sjPlot:: tab_model(m62)
+ggsave(file = "./fig/exp1/trainlmer_rt.svg")                       # Export ggplot2 plot
+
+p1
+```
+
+```{r}
+#full model
+dat_test$transfertype<-as.factor(dat_test$transfertype)
+dat_test$transfertype<-relevel(dat_test$transfertype,ref="control")
+```
+
+```{r}
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(timecollect ~ 1 + (1|ID), data=dat_test)
+m1<-lmer(timecollect~ 1 + trialposition +(1|ID), data=dat_test)
+m2<-lmer(timecollect~ 1 + trialposition + trialcollect +(1|ID), data=dat_test)
+m3<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+(1|ID), data=dat_test)
+m4<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+transfertype+(1|ID), data=dat_test)
+anova(mnull, m1)
+summary(m1)
+anova(m1, m2)
+summary(m2)
+anova(m2, m3)
+summary(m3)
+anova(m3,m4)
+summary(m4)
+```
+```{r}
+m4<-lmer(timecollect ~ 1 + trialposition + trialcollect + chunkbeginning + transfertype  +(1|ID), data=dat_test)
+summary(m4)
+# other variation of this model did not converge
+```
+
+
+
+
+
+```{r}
+
+p2 <- sjPlot::plot_model(m4,terms = c("transfertypesame","transfertypediff"), transform = NULL,
+                   show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE, value.offset = 0.3, show.data= TRUE, vline.color = 'gray', color = 'blue', p.threshold = 0.05,axis.labels=c("Same", "Different "),title="Regression Coefficients",) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "none")
+sjPlot:: tab_model(m4)
+ggsave(file = "./fig/exp1/testlmer_rt.svg")                       # Export ggplot2 plot
+
+p2
+```
+
+```{r,fig.width = 10,dpi = 200}
+library(patchwork)
+patchwork<-(p1 | p2 ) + plot_layout(nrow = 1) +  plot_annotation(tag_levels = 'a') + plot_layout(widths = c(3,3), heights = c(3,3))
+patchwork & theme(text = element_text(size=18))
+
+ggsave(file = "./fig/exp1/combined_rt.svg")                       # Export ggplot2 plot
+```
+
+```{r}
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/data.csv')
+dat$logRT <-log(dat$timecollect)
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+dat_a_train <-subset(dat_a, blockcollect=='train')
+dat_a$logRT <-log(dat_a$timecollect)
+dat$repetition<-rep(FALSE, nrow(dat))
+dat$immediaterepetition<-rep(FALSE, nrow(dat))
+dat_a$repetition<-rep(FALSE, nrow(dat_a))
+dat_a$immediaterepetition<-rep(FALSE, nrow(dat_a))
+dat$nrep<-rep(0, nrow(dat))
+dat_a$nrep<-rep(0, nrow(dat_a))
+
+
+for(id in unique(dat$ID)) {
+  thisparticipant<-dat[dat$ID == id & dat$blockcollect == 'train',] # training set
+  for (trial in 2:40){ # exclude the first trial
+    repetition<-FALSE
+    previousrepetition<-FALSE # exactly repeating the previous trial
+    for (prev in (trial-1):1){ # iterate through previous trials
+    if(identical(thisparticipant[thisparticipant$trialcollect == trial,]$instructioncollect,thisparticipant[thisparticipant$trialcollect == prev,]$instructioncollect)){
+      repetition<-TRUE
+      nr<-dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == prev,]$nrep + 1
+      if (prev == trial-1){previousrepetition<-TRUE}
+      break
+    }
+    }
+    if(repetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$nrep = nr
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$nrep = nr
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$repetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$repetition = TRUE
+    }
+    if(previousrepetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$immediaterepetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$immediaterepetition = TRUE
+    }
+    
+    }
+  }
+
+
+
+for(id in unique(dat$ID)) {
+  thisparticipant<-dat[dat$ID == id & dat$blockcollect == 'test',] # training set
+  for (trial in 2:24){ # exclude the first trial
+    repetition<-FALSE
+    previousrepetition<-FALSE # exactly repeating the previous trial
+    for (prev in (trial-1):1){ # iterate through previous trials
+    if(identical(thisparticipant[thisparticipant$trialcollect == trial,]$instructioncollect,thisparticipant[thisparticipant$trialcollect == prev,]$instructioncollect)){
+      repetition<-TRUE
+      nr<-dat_a[dat_a$ID == id & dat_a$blockcollect == 'test' & dat_a$trialcollect == prev,]$nrep + 1
+      if (prev == trial-1){previousrepetition<-TRUE}
+      break
+    }
+    }
+    if(repetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'test' & dat$trialcollect == trial,]$nrep = nr
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'test' & dat_a$trialcollect == trial,]$nrep = nr
+      dat[dat$ID == id & dat$blockcollect == 'test' & dat$trialcollect == trial,]$repetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'test' & dat_a$trialcollect == trial,]$repetition = TRUE
+    }
+    if(previousrepetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'test' & dat$trialcollect == trial,]$immediaterepetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'test' & dat_a$trialcollect == trial,]$immediaterepetition = TRUE
+    }
+    
+    }
+  }
+
+#full model
+dat_a_train<-dat_a[dat_a$blockcollect=='train',]
+dat_a_train$condition<-as.factor(dat_a_train$condition)
+dat_a_train$condition<-relevel(dat_a_train$condition,ref="ind")
+
+
+dat_test<-dat[dat$blockcollect == 'test',]
+se<-function(x){sd(x)/sqrt(length(x))}
+
+
+
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64)
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$variableposition<-ifelse(dat$trialposition==2 | dat$trialposition==6 | dat$trialposition==10,TRUE,FALSE)
+
+
+```
+
+```{r}
+dat_train<-dat[dat$blockcollect == 'train',]
+
+dat_train$traincondition<-as.factor(dat_train$traincondition)
+dat_train$traincondition<-relevel(dat_train$traincondition,ref="ind")
+dat_train$variableposition<-as.factor(dat_train$variableposition)
+
+dat_train$trialposition<-scale(dat_train$trialposition)
+dat_train$trialcollect<-scale(dat_train$trialcollect)[,1]
+dat_train$nrep<-scale(dat_train$nrep, scale = FALSE)
+dat_train$chunkbeginningorend<- ifelse((dat_train$chunkbeginningorend == 1), TRUE, FALSE)
+
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(timecollect ~ 1 + (1|ID) , data=dat_train)
+m1<-lmer(timecollect~ 1 + trialposition +(1|ID), data=dat_train)
+m2<-lmer(timecollect~ 1 + trialposition + trialcollect +(1|ID), data=dat_train)
+m3<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+(1|ID) , data=dat_train)
+m4<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+nrep+(1|ID), data=dat_train)
+m6<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning + nrep + traincondition + (1|ID), data=dat_train)
+m8<-lmer(timecollect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1|ID), data=dat_train)
+
+anova(mnull, m1)
+summary(m1)
+anova(m1, m2)
+summary(m2)
+anova(m2, m3)
+summary(m3)
+anova(m3,m4)
+summary(m4)
+anova(m4,m6)
+summary(m6)
+anova(m6,m8)
+summary(m8)
+```
+```{r}
+m60<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning + nrep + traincondition + (1|ID), data=dat_train)
+m61<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning + nrep + traincondition + (1 + trialcollect|ID), data=dat_train)
+m62<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning + nrep + traincondition + (1 + trialposition|ID), data=dat_train)
+m63<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning + nrep + traincondition + (1 + trialposition + trialcollect|ID), data=dat_train) # does not converge 
+
+anova(m60, m61)
+anova(m61, m62)# m61 is better
+
+
+summary(m61)
+```
+
+
+```{r}
+
+library(sjPlot) #for plotting lmer and glmer mods
+library(sjmisc) 
+library(effects)
+library(sjstats) #use for r2 functions
+require(ggplot2)
+
+
+
+p3 <- sjPlot::plot_model(m61, terms = c('trainconditionm1', 'chunkbeginning','trialposition','trialcollect'), transform = NULL,show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE, value.offset = 0.3, show.data= TRUE, vline.color = 'gray',color = 'blue', axis.labels = c('Variable','Chunk Beginning','Serial Position', 'trial ID'), title="Regression Coefficients") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "top") 
+ggsave(file = "./fig/exp2/trainlmer_rt.svg")                       # Export ggplot2 plot
+#axis.labels=c("Group M1", "Group M2", "Trial collect", "Recall position", "Chunk bundary", "N repetition", "M1 x Trial collect", "M2 x Trial collect"),
+sjPlot:: tab_model(m61, file = "")
+
+
+p3 
+```
+
+
+
+
+
+```{r}
+
+dat_test<-dat[dat$blockcollect == 'test',]
+
+dat_test$lv1<- rep(subset(subset(subset(dat, trialcollect == 1), blockcollect == 'train'),trialposition == 2)$instructioncollect, each = 24*12)
+dat_test$lv2<- rep(subset(subset(subset(dat, trialcollect == 1), blockcollect == 'train'),trialposition == 6)$instructioncollect, each = 24*12) # learned variable 2
+dat_test$lv3<- rep(subset(subset(subset(dat, trialcollect == 1), blockcollect == 'train'),trialposition == 10)$instructioncollect, each = 24*12)
+  
+dat_test$tv1 <- rep(subset(subset(dat, blockcollect == 'test'),trialposition == 2)$instructioncollect, each = 12) # tested variable 1 
+dat_test$tv2 <- rep(subset(subset(dat, blockcollect == 'test'),trialposition == 6)$instructioncollect, each = 12) # tested variable 2
+dat_test$tv3 <- rep(subset(subset(dat, blockcollect == 'test'),trialposition == 10)$instructioncollect, each = 12) # tested variable 3
+dat_test$coincide<- ifelse((dat_test$traincondition=='ind') & (dat_test$lv1==dat_test$tv1) & (dat_test$lv2==dat_test$tv2) & (dat_test$lv3==dat_test$tv3),1,0) # tested variable is the same as trained variable for the control group
+
+
+dat_test<-dat[dat$blockcollect == 'test' & dat$trialcollect <=10,] # take the first xxx trials
+dat_test$traincondition<-as.factor(dat_test$traincondition)
+dat_test$traincondition<-relevel(dat_test$traincondition,ref="ind")
+dat_test$variableposition<-as.factor(dat_test$variableposition)
+
+
+dat_test$trialposition<-scale(dat_test$trialposition)
+dat_test$trialcollect<-scale(dat_test$trialcollect)#[,1]
+dat_test$nrep<-scale(dat_test$nrep, scale = FALSE)
+
+dat_train$chunkbeginning<- ifelse((dat_train$chunkbeginning == 1), TRUE, FALSE)
+dat_test$chunkbeginning<-as.factor(dat_test$chunkbeginning)
+
+
+#cor(dat_test[, c("trialcollect", "trialposition", "nrep", "positioncorrect", "chunkbeginningorend")])
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(timecollect ~ 1 + (1|ID) , data=dat_test)
+m1<-lmer(timecollect~ 1 + trialposition +(1|ID), data=dat_test)
+m2<-lmer(timecollect~ 1 + trialposition + trialcollect +(1|ID), data=dat_test)
+m3<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning+(1|ID) , data=dat_test)
+m4<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning +  traincondition + (1|ID), data=dat_test)
+
+anova(mnull, m1)
+summary(m1)
+anova(m1, m2)
+summary(m2)
+anova(m2, m3)
+summary(m3)
+anova(m3,m4)
+summary(m4)
+```
+```{r}
+m40<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning +  traincondition + (1|ID), data=dat_test)
+
+m41<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning +  traincondition + (1+trialcollect|ID), data=dat_test)
+
+m42<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning +  traincondition + (1+trialposition|ID), data=dat_test)
+
+m43<-lmer(timecollect~ 1 + trialposition+ trialcollect + chunkbeginning +  traincondition + (1+trialposition + trialcollect|ID), data=dat_test)
+
+
+anova(m41, m43)
+
+summary(m43)
+```
+
+
+```{r}
+
+library(sjPlot) #for plotting lmer and glmer mods
+library(sjmisc) 
+library(effects)
+library(sjstats) #use for r2 functions
+library(svglite)
+
+p4 <- sjPlot::plot_model(m43, terms = c('trialposition', 'chunkbeginning1', 'trainconditionm1'), transform = NULL,show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE, value.offset = 0.3, show.data= TRUE, vline.color = 'gray',color = 'blue', axis.labels = c( 'Serial Position','Chunk Beginning','Variable'), title="Regression Coefficients") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))  +   theme(panel.grid.major = element_blank(),  panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "top") 
+ggsave(file = "./fig/exp2/testlmer_rt.svg")                       # Export ggplot2 plot
+
+#axis.labels=c("Group M1", "Group M2", "Trial collect", "Recall position", "Chunk bundary", "N repetition", "M1 x Trial collect", "M2 x Trial collect"),
+sjPlot:: tab_model(m43)
+
+p4
+```
+
+
+
+
+```{r,fig.width = 10,dpi = 200}
+library(patchwork)
+patchwork<-(p3 | p4 ) + plot_layout(nrow = 1) +  plot_annotation(tag_levels = 'a') + plot_layout(widths = c(3,3), heights = c(3,3))
+patchwork & theme(text = element_text(size=16))
+
+ggsave(file = "./fig/exp2/combined_rt.svg")                       # Export ggplot2 plot
+```

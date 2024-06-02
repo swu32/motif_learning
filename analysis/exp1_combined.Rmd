@@ -1,0 +1,800 @@
+---
+title: "Combined Experiment 1 Plots"
+output: html_notebook
+---
+
+
+```{r}
+library(plyr)
+library(ggplot2)
+library(lmerTest)
+library(patchwork)
+```
+
+```{r}
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/data.csv')
+dat$logRT <-log(dat$timecollect)
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)# correctness of recall position
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # subchunk beginning
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # chunk boundaries
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_a_train <-subset(dat_a, blockcollect=='train')
+dat_a$logRT <-log(dat_a$timecollect)
+
+# initialize exact sequence repetitions
+dat$repetition<-rep(FALSE, nrow(dat))
+dat$immediaterepetition<-rep(FALSE, nrow(dat))
+dat_a$repetition<-rep(FALSE, nrow(dat_a))
+dat_a$immediaterepetition<-rep(FALSE, nrow(dat_a))
+
+
+# mark sequence repetition trials in the training block
+for(id in unique(dat$ID)) {
+  thisparticipant<-dat[dat$ID == id & dat$blockcollect == 'train',] # training set
+  for (trial in 2:40){ # exclude the first trial
+    repetition<-FALSE
+    previousrepetition<-FALSE # exactly repeating the previous trial
+    for (prev in 1:(trial-1)){ # iterate through previous trials
+    if(identical(thisparticipant[thisparticipant$trialcollect == trial,]$instructioncollect,thisparticipant[thisparticipant$trialcollect == prev,]$instructioncollect)){
+      repetition<-TRUE
+      if (prev == trial-1){previousrepetition<-TRUE} # found one exact repetition
+      break
+    }
+    }
+    if(repetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$repetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$repetition = TRUE
+    }
+    if(previousrepetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$immediaterepetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$immediaterepetition = TRUE
+    }    
+    }
+  }
+
+#full model
+dat_a_train<-dat_a[dat_a$blockcollect=='train',]
+dat_a_train$condition<-as.factor(dat_a_train$condition)
+dat_a_train$condition<-relevel(dat_a_train$condition,ref="ind")
+
+```
+
+
+```{r}
+library(ggsignif)
+
+#standard error function
+se<-function(x){sd(x)/sqrt(length(x))}
+dat_a_train<-dat_a_train[dat_a_train['correctcollect']>0.3 & dat_a_train['repetition']==FALSE,]
+#summarize data by condition
+# sort according to the column of trial instruction, with different trial instructions
+dpsubjects<-ddply(dat_a_train,.(ID,condition), summarize, meanacc=mean(correctcollect), se=se(correctcollect))
+#dpsubjects$condition<-ifelse(dpsubjects$condition=="ind", "Random", "Motif")
+
+dpgroups<-ddply(dpsubjects,.(condition), summarize, m=mean(meanacc), se=se(meanacc))
+
+#creat plot
+p1 <- ggplot(dpgroups, aes(y=m, x=condition, fill=condition)) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0))+
+  #ylab
+  ylab("Empirical Accuracy")+
+  #x-lab
+  xlab("Group")+ 
+  #theme
+  theme_classic()+
+  #fills
+  scale_fill_manual(values=(c("#586A4E", "#963B36","#9F5C2D")))+
+  #theme change
+#  geom_signif(comparisons=list(c("ind", "m1")), annotations="**",y_position = 1.0, tip_length = 0.2, vjust=0.2) +
+#    geom_signif(comparisons=list(c("ind", "m2")), annotations="**",y_position = 1.1, tip_length = 0.2, vjust=0.2) +
+ scale_x_discrete(labels=c("Independent", "Motif 1", "Motif 2"))+
+    theme(strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+    #theme(text = element_text(size=21,  family="sans"), strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none",aspect.ratio = 0.9)
+    #title
+  ggtitle("Behavioral Results")
+
+  ggsave(file = "./fig/exp1/trainacc.svg")                       # Export ggplot2 plot
+
+#show
+p1
+```
+
+
+```{r}
+select_data = dat_a_train[dat_a_train$immediaterepetition==FALSE,]
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(correctcollect~1+(1|ID), data=select_data)
+#alternative model contains condition is fixed effect
+malternative<-lmer(correctcollect~condition+(1|ID), data=select_data)
+#is the alternative model significantly better than the null model
+anova(mnull, malternative)
+summary(malternative)
+```
+```{r}
+dat_a_train <-subset(dat_a, blockcollect=='train')
+dat_a_train<-dat_a_train[dat_a_train['correctcollect']>0.3,]
+
+#full model
+dat_a_train$condition<-as.factor(dat_a_train$condition)
+dat_a_train$condition<-relevel(dat_a_train$condition,ref="ind")
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(correctcollect~condition+trialcollect + (1 |ID), data=dat_a_train)
+#alternative model contains condition is fixed effect
+malternative<-lmer(correctcollect~condition*trialcollect+(1|ID), data=dat_a_train)
+#is the alternative model significantly better than the null model
+anova(mnull, malternative)
+```
+
+```{r}
+dat_s<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall.csv')
+dat_s_train <-subset(dat_s, blockcollect=='train')
+
+#full model
+dat_s_train$condition<-as.factor(dat_s_train$condition)
+dat_s_train$condition<-relevel(dat_s_train$condition,ref="ind")
+
+```
+
+```{r}
+#summarize data by condition
+# sort according to the column of trial instruction, with different trial instructions
+dpsubjects<-ddply(dat_s_train,.(ID,condition), summarize, meanacc=mean(correctcollect), se=se(correctcollect))
+#dpsubjects$condition<-ifelse(dpsubjects$condition=="ind", "Random", "Motif")
+
+dpgroups<-ddply(dpsubjects,.(condition), summarize, m=mean(meanacc), se=se(meanacc))
+
+#creat plot
+p2 <- ggplot(dpgroups, aes(y=m, x=condition, fill=condition)) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
+  #ylab
+  ylab("Generative Accuracy")+
+  #x-lab
+  xlab("Group")+ 
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0))+
+
+  #theme
+  theme_classic()+
+  #fills
+  scale_fill_manual(values=(c("#586A4E", "#963B36","#9F5C2D")))+
+  #theme change
+  #geom_signif(comparisons=list(c("ind", "m1")), annotations="***",
+  #            y_position = 0.65, tip_length = 0.2, vjust=0.2) +
+  #  geom_signif(comparisons=list(c("ind", "m2")), annotations="***",
+  #            y_position = 0.75, tip_length = 0.2, vjust=0.2) +
+   scale_x_discrete(labels=c("Independent", "Motif 1", "Motif 2"))+
+  theme( strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+  #title
+  ggtitle("Model Prediction")
+#show
+p2
+```
+
+```{r} 
+# a set of 9 bar plots
+# sort according to the column of trial instruction, with different trial instructions
+dpsubjects<-ddply(dat_a,.(ID,condition,blockcollect), summarize, meanacc=mean(correctcollect), meanrt=mean(timecollect))
+dpsubjects$traincondition = rep(subset(dpsubjects, blockcollect == 'train')$condition, each=4)
+dpsubjects$trainacc = rep(subset(dpsubjects, blockcollect == 'train')$meanacc, each=4)
+dpsubjects$trainrt = rep(subset(dpsubjects, blockcollect == 'train')$meanrt, each=4)
+dpsubjects<-subset(dpsubjects, blockcollect == 'test')
+dpsubjects$delta_a<-dpsubjects$meanacc - dpsubjects$trainacc # positive always means improvement
+dpsubjects$delta_rt<-dpsubjects$trainrt - dpsubjects$meanrt 
+
+dpsubjects$testcondition<-dpsubjects$condition
+dpsubjects<-subset(dpsubjects, blockcollect == 'test')
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='m1', 'm1-m1', 0)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='m2', 'm1-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='ind', 'm1-ind', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='m2', 'm2-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='m1', 'm2-m1', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='ind', 'm2-ind', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='m1', 'ind-m1', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='m2', 'ind-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='ind', 'ind-ind', dpsubjects$transfer)
+
+
+msubjects<-dpsubjects[dpsubjects$traincondition %in% c('m1','m2'),]
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-m1','m2-m2'),'same',0)
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-m2','m2-m1'),'diff',msubjects$transfertype)
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-ind','m2-ind'),'control',msubjects$transfertype)
+
+dpgroups<-ddply(msubjects,.(transfertype), summarize, m=mean(meanacc), se=se(meanacc))
+
+p5<- ggplot(dpgroups, aes(y=m, x=transfertype, fill=transfertype)) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0))+
+  geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
+  #ylab
+  ylab("Empirical Accuracy")+
+  #x-lab
+  xlab("Transfer Type")+ 
+  #theme
+  theme_classic()+
+  #fills
+  scale_fill_manual(values=(c("#F5E9E2", "#6C5023", "#71AD79")))+
+   scale_x_discrete(labels=c("Control", "Different", "Same"))+
+
+  
+#  geom_signif(comparisons=list(c("control", "diff")), annotations="***",
+#            y_position = 1.0, tip_length = 0.2, vjust=0.2) +
+#  geom_signif(comparisons=list(c("control", "same")), annotations="***",
+#            y_position = 1.1, tip_length = 0.2, vjust=0.2) +
+  #theme change
+  theme(strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+
+  #title
+  ggtitle("Behavioral Results")
+
+ggsave(file = "./fig/exp1/transferacc.svg") 
+
+# Export ggplot2 plot
+p5
+
+```
+
+```{r}
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-lmer(meanacc ~ (1|ID), data=msubjects)
+#alternative model contains condition is fixed effect
+malternative<-lmer(meanacc~transfertype+(1|ID), data=msubjects)
+#is the alternative model significantly better than the null model
+anova(mnull, malternative)
+```
+
+
+```{r}
+summary(malternative)
+```
+
+
+
+
+```{r}
+# a set of 9 bar plots
+# sort according to the column of trial instruction, with different trial instructions
+dat_s$timecollect = -log(dat_s$p)
+dpsubjects<-ddply(dat_s,.(ID,condition,blockcollect), summarize, meanacc=mean(correctcollect), meanrt=mean(timecollect))
+dpsubjects$traincondition = rep(subset(dpsubjects, blockcollect == 'train')$condition, each=4)
+dpsubjects$trainacc = rep(subset(dpsubjects, blockcollect == 'train')$meanacc, each=4)
+dpsubjects$trainrt = rep(subset(dpsubjects, blockcollect == 'train')$meanrt, each=4)
+dpsubjects<-subset(dpsubjects, blockcollect == 'test')
+dpsubjects$delta_a<-dpsubjects$meanacc - dpsubjects$trainacc # positive always means improvement
+dpsubjects$delta_rt<-dpsubjects$trainrt - dpsubjects$meanrt 
+
+dpsubjects$testcondition<-dpsubjects$condition
+dpsubjects<-subset(dpsubjects, blockcollect == 'test')
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='m1', 'm1-m1', 0)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='m2', 'm1-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m1' & (dpsubjects$testcondition)=='ind', 'm1-ind', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='m2', 'm2-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='m1', 'm2-m1', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='m2' & (dpsubjects$testcondition)=='ind', 'm2-ind', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='m1', 'ind-m1', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='m2', 'ind-m2', dpsubjects$transfer)
+dpsubjects$transfer<-ifelse((dpsubjects$traincondition)=='ind' & (dpsubjects$testcondition)=='ind', 'ind-ind', dpsubjects$transfer)
+
+
+msubjects<-dpsubjects[dpsubjects$traincondition %in% c('m1','m2'),]
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-m1','m2-m2'),'same',0)
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-m2','m2-m1'),'diff',msubjects$transfertype)
+msubjects$transfertype<-ifelse(msubjects$transfer %in% c('m1-ind','m2-ind'),'control',msubjects$transfertype)
+
+dpgroups<-ddply(msubjects,.(transfertype), summarize, m=mean(meanacc), se=se(meanacc))
+
+p6<- ggplot(dpgroups, aes(y=m, x=transfertype, fill=transfertype)) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  scale_y_continuous(limits = c(0, 1), expand = c(0, 0))+
+  geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
+  #ylab
+  ylab("Generative Accuracy")+
+  #x-lab
+  xlab("Transfer Type")+ 
+  #theme
+  theme_classic()+
+  #fills
+  scale_fill_manual(values=(c("#F5E9E2", "#6C5023", "#71AD79")))+
+  scale_x_discrete(labels=c("Control", "Different", "Same"))+
+  #geom_signif(comparisons=list(c("control", "diff")), annotations="***",
+  #          y_position = 0.7, tip_length = 0.2, vjust=0.2) +
+  #geom_signif(comparisons=list(c("control", "same")), annotations="***",
+  #          y_position = 0.8, tip_length = 0.2, vjust=0.2) +
+  #theme change
+  theme(strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+  #title
+  ggtitle("Model Prediction")
+
+p6
+```
+```{r}
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/data.csv')
+dat$logRT <-log(dat$timecollect)
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$traincondition<-'0'
+
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_a$traincondition<-'0' # initialization
+
+dat_a_train <-subset(dat_a, blockcollect=='train')
+dat_a$logRT <-log(dat_a$timecollect)
+dat$repetition<-rep(FALSE, nrow(dat))
+dat$nrep<-rep(0, nrow(dat))
+dat$immediaterepetition<-rep(FALSE, nrow(dat))
+dat_a$repetition<-rep(FALSE, nrow(dat_a))
+dat_a$nrep<-rep(0, nrow(dat_a))
+dat_a$immediaterepetition<-rep(FALSE, nrow(dat_a))
+
+for(id in unique(dat$ID)) {
+  thisparticipant<-dat[dat$ID == id & dat$blockcollect == 'train',] # training set
+  tc <- dat[dat$ID == id & dat$blockcollect == 'train',]$condition[2]
+  dat[dat$ID == id,]$traincondition<- rep(tc, 64*12)
+  dat_a[dat_a$ID == id,]$traincondition<- rep(tc, 64)
+  for (trial in 2:40){ # exclude the first trial
+    repetition<-FALSE
+    previousrepetition<-FALSE # exactly repeating the previous trial
+    for (prev in (trial-1):1){ # iterate through previous trials
+    if(identical(thisparticipant[thisparticipant$trialcollect == trial,]$instructioncollect,thisparticipant[thisparticipant$trialcollect == prev,]$instructioncollect)){
+      repetition<-TRUE
+      nr<-dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == prev,]$nrep + 1
+      if (prev == trial-1){previousrepetition<-TRUE}
+      break
+    }
+    }
+    if(repetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$nrep = nr
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$nrep = nr
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$repetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$repetition = TRUE
+    }
+    if(previousrepetition == TRUE){
+      dat[dat$ID == id & dat$blockcollect == 'train' & dat$trialcollect == trial,]$immediaterepetition = TRUE
+      dat_a[dat_a$ID == id & dat_a$blockcollect == 'train' & dat_a$trialcollect == trial,]$immediaterepetition = TRUE
+
+    }    
+    }
+  }
+
+
+
+dat$testcondition<-dat$condition
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='m1', 'm1-m1', 0)
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='m2', 'm1-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m1' & (dat$testcondition)=='ind', 'm1-ind', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='m2', 'm2-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='m1', 'm2-m1', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='m2' & (dat$testcondition)=='ind', 'm2-ind', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='m1', 'ind-m1', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='m2', 'ind-m2', dat$transfer)
+dat$transfer<-ifelse((dat$traincondition)=='ind' & (dat$testcondition)=='ind', 'ind-ind', dat$transfer)
+
+
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-m1','m2-m2'),'same',0)
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-m2','m2-m1'),'diff',dat$transfertype)
+dat$transfertype<-ifelse(dat$transfer %in% c('m1-ind','m2-ind'),'control',dat$transfertype)
+
+
+#full model
+dat_a_train<-dat_a[dat_a$blockcollect=='train',]
+dat_a_train$condition<-as.factor(dat_a_train$condition)
+dat_a_train$condition<-relevel(dat_a_train$condition,ref="ind")
+
+dat_train<-dat[dat$blockcollect == 'train',]
+
+dat_test<-dat[dat$blockcollect == 'test' & dat$transfertype!=0,]
+
+se<-function(x){sd(x)/sqrt(length(x))}
+
+```
+
+```{r}
+dat_train$trialposition<-scale(dat_train$trialposition)
+dat_train$trialcollect<-scale(dat_train$trialcollect)[,1]
+dat_train$nrep<-scale(dat_train$nrep, scale = FALSE)
+#dat_train$chunkbeginningorend<- ifelse((dat_train$chunkbeginningorend == 1), TRUE, FALSE)
+
+
+cor(dat_train[, c("trialcollect", "trialposition", "nrep", "positioncorrect", "chunkbeginningorend")])
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-glmer(positioncorrect ~ 1 + (1|ID) , data=dat_train, family = binomial)
+m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_train, family = binomial)
+m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_train, family = binomial)
+m3<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+(1|ID) , data=dat_train, family = binomial)
+m4<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+m5<-glmer(positioncorrect~ 1 + condition + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+m6<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+anova(mnull, m1)
+summary(m1)
+anova(m1, m2)
+summary(m2)
+anova(m2, m3)
+summary(m3)
+anova(m3,m4)
+summary(m4)
+anova(m4,m5)
+summary(m5)
+anova(m5,m6)
+summary(m6)
+
+m6<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+
+m62<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1+trialposition|ID), data=dat_train, family = binomial) # 
+
+summary(m62)
+```
+```{r}
+m60<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+m61<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1+trialcollect|ID), data=dat_train, family = binomial)
+m62<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1+trialposition|ID), data=dat_train, family = binomial)
+m63<-glmer(positioncorrect~ 1 + condition*trialcollect + trialposition + chunkbeginningorend+nrep+(1+trialposition+trialcollect|ID), data=dat_train, family = binomial)
+
+anova(m60, m62)
+summary(m62)
+```
+
+
+```{r}
+# definitely recheck
+
+library(sjPlot) #for plotting lmer and glmer mods
+library(sjmisc) 
+library(effects)
+library(sjstats) #use for r2 functions
+
+p3<-sjPlot::plot_model(m62,terms = c("conditionm1","conditionm2","conditionm1:trialcollect","conditionm2:trialcollect","chunkbeginningorend"), transform = NULL,
+                   show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE,  show.data= TRUE, vline.color = 'gray', color = 'blue', axis.labels=c("Motif 2 x Trial ID", "Motif 1 x Trial ID", "Chunk Boundary", "Motif 2", "Motif 1"),title="Regression Coefficients", ) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "none") 
+
+sjPlot:: tab_model(m6)
+ggsave(file = "./fig/exp1/trainlmer.svg")                       # Export ggplot2 plot
+
+p3
+
+```
+
+
+```{r}
+#full model
+dat_test$transfertype<-as.factor(dat_test$transfertype)
+dat_test$transfertype<-relevel(dat_test$transfertype,ref="control")
+
+#null model doesn't contain condition, but fixed and random intercept
+mnull<-glmer(positioncorrect ~ 1 + (1|ID), data=dat_test, family = binomial)
+m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_test, family = binomial)
+m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_test, family = binomial)
+m3<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend+(1|ID), data=dat_test, family = binomial)
+m4<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + transfertype  +(1|ID), data=dat_test, family = binomial)
+#m5<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + traincondition*trialcollect +(1|ID), data=dat_test, family = binomial)
+#m6<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + traincondition*trialcollect +(1|ID), data=dat_test, family = binomial)
+anova(mnull, m1)
+summary(m1)
+anova(m1, m2)
+summary(m2)
+anova(m2, m3)
+summary(m3)
+anova(m3,m4)
+summary(m4)
+#anova(m4,m5)
+#summary(m5)
+#anova(m5,m6)
+#summary(m6)
+```
+
+
+```{r}
+#full model
+dat_test$transfertype<-as.factor(dat_test$transfertype)
+dat_test$transfertype<-relevel(dat_test$transfertype,ref="control")
+
+m4<-glmer(positioncorrect~ 1 + trialposition + chunkbeginningorend + transfertype +trialcollect  +(1|ID), data=dat_test, family = binomial)
+summary(m4)
+```
+
+```{r}
+m4<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + transfertype  +(1|ID), data=dat_test, family = binomial)
+m41<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + transfertype  +(1 + trialcollect |ID), data=dat_test, family = binomial)
+
+m42<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + transfertype  +(1 + trialposition |ID), data=dat_test, family = binomial)
+
+m43<-glmer(positioncorrect~ 1 + trialposition + trialcollect + chunkbeginningorend + transfertype  +(1 + trialposition + trialcollect|ID), data=dat_test, family = binomial)
+
+anova(m4, m41)
+summary(m41)
+anova(m41, m43)
+summary(m43)
+```
+
+```{r}
+library(sjPlot) #for plotting lmer and glmer mods
+library(sjmisc) 
+library(effects)
+library(sjstats) #use for r2 functions
+
+p7 <- sjPlot::plot_model(m43,terms = c("transfertypesame","transfertypediff"), transform = NULL,
+                   show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE, value.offset = 0.3, show.data= TRUE, vline.color = 'gray', color = 'blue', p.threshold = 0.05,axis.labels=c("Same", "Different "),title="Regression Coefficients",) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "none")
+sjPlot:: tab_model(m4)
+ggsave(file = "./fig/exp1/testlmer.svg")                       # Export ggplot2 plot
+
+p7
+```
+
+
+```{r}
+library(plyr)
+library("ggpubr")
+modeldir = '/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall.csv'
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_m<-read.csv(modeldir)
+dat_m$traincondition<-'ind'
+for(id in unique(dat_m$ID)) {
+  thisparticipant<-dat_m[dat_m$ID == id & dat_m$blockcollect == 'train',] # training set
+  tc <- dat_m[dat_m$ID == id & dat_m$blockcollect == 'train',]$condition[2]
+  dat_m[dat_m$ID == id,]$traincondition<- rep(tc, 64)}
+
+# look at training
+dat_a_train <-dat_a[dat_a$blockcollect == 'train',]
+dat_m_train <-dat_m[dat_m$blockcollect == 'train',]
+
+da<-ddply(dat_a_train, .(trialcollect,traincondition), summarize, m=mean(correctcollect), se=se(correctcollect))
+dm<-ddply(dat_m_train, .(trialcollect,traincondition), summarize, m=mean(correctcollect), se=se(correctcollect))
+
+dam<-data.frame(cbind(da, dm))
+
+se<-function(x){sd(x)/sqrt(length(x))}
+
+p4 <- ggscatter(dam,x = 'm.1', y = 'm', color = 'traincondition',size = 'trialcollect',shape = 'traincondition', add = c("reg.line"), legend = 'right',conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Generative Accuracy (Model)",  ylab = "Empirical Accuracy (Subject)", legend.label = c('Group', 'N trial'), font.family = 'sans',font.label = c(18, "sans"), fftheme = theme_pubr(), title = 'Training Block',  cor.coef.size = 5, cor.coef.coord = c(0.65, 0.6)) + scale_color_manual(values=(c("#586A4E", "#963B36","#9F5C2D"))) +  
+  scale_fill_manual(values=(c("#586A4E", "#963B36","#9F5C2D"))) + 
+ theme(text = element_text(size=18,  family="sans"), strip.background=element_blank(), legend.key=element_rect(color=NA), aspect.ratio = 1) + 
+labs(size="Training Trial", shape="Group")
+
+p4
+```
+
+
+```{r}
+dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_m<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall.csv')
+dat_m$traincondition<-'ind'
+for(id in unique(dat_m$ID)) {
+  thisparticipant<-dat_m[dat_m$ID == id & dat_m$blockcollect == 'train',] # training set
+  tc <- dat_m[dat_m$ID == id & dat_m$blockcollect == 'train',]$condition[2]
+  dat_m[dat_m$ID == id,]$traincondition<- rep(tc, 64)
+  dat_m[dat_m$ID == id,]$trialcollect<-c(1:40,1:8,1:8,1:8)
+  }
+
+# look at training
+dat_a_test <-dat_a[dat_a$blockcollect == 'test',]
+dat_m_test <-dat_m[dat_m$blockcollect == 'test',]
+
+da<-ddply(dat_a_test, .(trialcollect,traincondition,condition), summarize, m=mean(correctcollect), se=se(correctcollect))
+dm<-ddply(dat_m_test, .(trialcollect,traincondition,condition), summarize, m=mean(correctcollect), se=se(correctcollect))
+
+dam<-data.frame(cbind(da, dm))
+
+se<-function(x){sd(x)/sqrt(length(x))}
+library(plyr)
+library("ggpubr")
+
+p8 <- ggscatter(dam,x = 'm.1', y = 'm', color = 'traincondition',size = 'trialcollect',shape = 'traincondition', add = c("reg.line"), legend = 'right',conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Generative Accuracy (Model)", ylab = "Empirical Accuracy (Subject)", legend.label = c('Group', 'N trial'), font.family = 'sans',font.label = c(18, "sans"), fftheme = theme_pubr(), title = 'Test Block',  cor.coef.size = 5, cor.coef.coord = c(0.6, 0.6)) +  
+  scale_color_manual(values=(c("#586A4E", "#963B36","#9F5C2D"))) +  
+  scale_fill_manual(values=(c("#586A4E", "#963B36","#9F5C2D"))) + 
+  theme(text = element_text(size=18,  family="sans"), strip.background=element_blank(), legend.key=element_rect(color=NA), aspect.ratio = 1) + 
+labs(size="Trial", shape="Group")
+p8
+
+```
+
+
+```{r}
+dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
+empirical_acc<-ddply(dat_subj, .(trial,condition), summarize, m=mean(correctcollect))
+
+empirical_acc <- empirical_acc[empirical_acc$trial<=40,]
+empirical_acc$trial<-scale(empirical_acc$trial)
+linearmodel <- lm(m~trial*condition, data=empirical_acc)
+RSlinearmodel<- summary(linearmodel)$r.square
+empirical_acc <- empirical_acc$m
+
+
+dat_normal<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall.csv')
+dat_normal$trial<-rep((1:64),length(unique(dat_normal$ID)))
+dat_normal<-ddply(dat_normal, .(trial,condition), summarize, m=mean(correctcollect))
+
+motif_learning <- dat_normal[dat_normal$trial<=40,]$m
+conditions <-dat_normal[dat_normal$trial<=40,]$condition
+
+#dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_associative_learning.csv')
+dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_associative_learning_concrete_sequences.csv')
+dat_associative_learning$trial<-rep((1:64),length(unique(dat_associative_learning$ID)))
+dat_associative_learning<-ddply(dat_associative_learning, .(trial,condition), summarize, m=mean(correctcollect))
+
+associative_learning<-dat_associative_learning[dat_associative_learning$trial<=40,]$m
+
+dat_projectional_lesioned<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_leison_projectional_motif.csv')
+dat_projectional_lesioned$trial<-rep((1:64),length(unique(dat_projectional_lesioned$ID)))
+dat_projectional_lesioned<-ddply(dat_projectional_lesioned, .(trial,condition), summarize, m=mean(correctcollect))
+
+sequence_learning<-dat_projectional_lesioned[dat_projectional_lesioned$trial<=40,]$m
+
+dfmc<-data.frame(empirical_acc,motif_learning,associative_learning,sequence_learning,conditions)
+
+model <- lm(empirical_acc~motif_learning, data=dfmc)
+RSmotiflearning<- summary(model)$r.squared
+
+model <- lm(empirical_acc~associative_learning, data=dfmc)
+RSassociative_learning<- summary(model)$r.squared
+
+model <- lm(empirical_acc~sequence_learning, data=dfmc)
+RSsequence_learning<- summary(model)$r.squared
+
+# Create data
+modelcomparison <- data.frame(
+  name=c("Motif","Associative","Chunking") ,  
+  value=c(RSmotiflearning, RSassociative_learning, RSsequence_learning))
+
+#aes(x = reorder(GFG_Name, +GFG_Sal), y = GFG_Sal)
+#creat plot
+p4 <- ggplot(modelcomparison, aes(y=value, x=reorder(name,+value))) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  scale_y_continuous(expand = c(0, 0))+
+  #ylab
+  ylab("R-Squared")+
+  #x-lab
+  xlab("Model")+ 
+  #theme
+  theme_classic()+
+  #theme change
+  theme( strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+  
+  #title
+  ggtitle("Model Comparison")
+  ggsave(file = "./fig/exp1/modelcomparison.svg")                       # Export ggplot2 plot
+
+p4
+```
+
+```{r}
+dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
+empirical_acc<-ddply(dat_subj, .(trial,condition), summarize, m=mean(correctcollect))
+empirical_acc <- empirical_acc[empirical_acc$trial<=40,]
+empirical_acc$trial<-scale(empirical_acc$trial)
+empirical_acc$motif<-motif_learning 
+m1 <- lm(m ~ trial + condition,data = empirical_acc)
+m2 <- lm(m ~ trial + condition + motif, data = empirical_acc)
+anova(m1, m2) # motif learning model explains additional variance beyond trial number and condition
+summary(m2)
+```
+
+
+```{r}
+dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
+empirical_acc<-ddply(dat_subj, .(trial,condition), summarize, m=mean(correctcollect))
+
+empirical_acc <- empirical_acc[empirical_acc$trial>40,]
+empirical_acc$trial<-scale(empirical_acc$trial)
+linearmodel <- lm(m~trial*condition, data=empirical_acc)
+RSlinearmodel<- summary(linearmodel)$r.square
+empirical_acc <- empirical_acc$m
+
+
+dat_normal<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall.csv')
+dat_normal$trial<-rep((1:64),length(unique(dat_normal$ID)))
+dat_normal<-ddply(dat_normal, .(trial,condition), summarize, m=mean(correctcollect))
+conditions <-dat_normal[dat_normal$trial>40,]$condition
+motif_learning <- dat_normal[dat_normal$trial>40,]$m
+
+#dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_associative_learning.csv')
+dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_associative_learning_concrete_sequences.csv')
+dat_associative_learning$trial<-rep((1:64),length(unique(dat_associative_learning$ID)))
+dat_associative_learning<-ddply(dat_associative_learning, .(trial,condition), summarize, m=mean(correctcollect))
+
+associative_learning<-dat_associative_learning[dat_associative_learning$trial>40,]$m
+
+dat_projectional_lesioned<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_leison_projectional_motif.csv')
+dat_projectional_lesioned$trial<-rep((1:64),length(unique(dat_projectional_lesioned$ID)))
+dat_projectional_lesioned<-ddply(dat_projectional_lesioned, .(trial,condition), summarize, m=mean(correctcollect))
+
+sequence_learning<-dat_projectional_lesioned[dat_projectional_lesioned$trial>40,]$m
+
+dfmc<-data.frame(empirical_acc,motif_learning,associative_learning,sequence_learning,conditions)
+
+model <- lm(empirical_acc~motif_learning, data=dfmc)
+RSmotiflearning<- summary(model)$r.squared
+
+model <- lm(empirical_acc~associative_learning, data=dfmc)
+RSassociative_learning<- summary(model)$r.squared
+
+model <- lm(empirical_acc~sequence_learning, data=dfmc)
+RSsequence_learning<- summary(model)$r.squared
+
+# Create data
+modelcomparison <- data.frame(
+  name=c("Motif","Associative","Chunking") ,  
+  value=c(RSmotiflearning,RSassociative_learning,RSsequence_learning))
+
+
+#creat plot
+p8 <- ggplot(modelcomparison, aes(y=value, x=reorder(name,+value))) +
+  #show mean
+  stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
+  #points
+  geom_point()+
+  #error bars +/- SEs
+  scale_y_continuous(expand = c(0, 0))+
+  #ylab
+  ylab("R-Squared")+
+  #x-lab
+  xlab("Model")+ 
+  #theme
+  theme_classic()+
+  #theme change
+  theme( strip.background=element_blank(), legend.key=element_rect(color=NA), legend.position="none")+
+  
+  #title
+  ggtitle("Model Comparison")
+  ggsave(file = "./fig/exp1/modelcomparisontest.svg")                       # Export ggplot2 plot
+
+p8
+```
+```{r}
+dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/accdata.csv')
+dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
+empirical_acc<-ddply(dat_subj, .(trial,condition), summarize, m=mean(correctcollect))
+empirical_acc <- empirical_acc[empirical_acc$trial>40,]
+empirical_acc$trial<-scale(empirical_acc$trial)
+
+empirical_acc$motif<-motif_learning 
+m1 <- lm(m ~ trial + condition,data = empirical_acc)
+m2 <- lm(m ~ trial + condition + motif, data = empirical_acc)
+anova(m1, m2) # motif learning model explains additional variance beyond trial number and condition
+summary(m2)
+```
+
+```{r,fig.width = 15,dpi = 200}
+library(patchwork)
+patchwork<-(p1 | p2 | p3 | p4)/(p5 | p6 | p7 | p8) + plot_layout(nrow = 2) +  plot_annotation(tag_levels = 'a') + plot_layout(widths = c(3,3,6,10), heights = c(3,3))
+patchwork & theme(text = element_text(size=16))
+
+ggsave(file = "./fig/exp1/combined.svg")                       # Export ggplot2 plot
+
+```
+
+```
+```{r}
+ (p1/(p2|p3))
+```
+

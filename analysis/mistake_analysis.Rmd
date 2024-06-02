@@ -1,0 +1,121 @@
+---
+title: "Mistake Analysis"
+output: html_notebook
+---
+```{r}
+
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/data.csv')
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$positionwrong<-ifelse(dat$recallcollect != dat$instructioncollect,1,0)
+
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+```
+```{r}
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_associative_learning_concrete_sequences_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+```
+
+```{r}
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ed/simulation_data_model_transition_recall_leison_projectional_motif_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+```
+
+```{r}
+
+dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/data.csv')
+dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
+dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
+dat$positionwrong<-ifelse(dat$recallcollect != dat$instructioncollect,1,0)
+dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# mark post mistake positions
+dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
+dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
+dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+ sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+
+```
+
+```{r}
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_associative_learning_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+ sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+
+```
+
+
+```{r}
+
+dat_simulation<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_leison_variable_motif_individualkey.csv')
+dat_simulation$trial<-rep((1:64),length(unique(dat_simulation$ID)))
+dat_simulation$positionwrong<-ifelse(dat_simulation$recallcollect != dat_simulation$instructioncollect,1,0)
+
+
+dat$sim_positionwrong<-dat_simulation$positionwrong
+
+mnull<-glmer(positionwrong ~ 1 + (1|ID) , data=dat, family = binomial)
+m1<-glmer(positionwrong ~ 1+ sim_positionwrong + (1|ID) , data=dat, family = binomial)
+
+summary(m1)
+anova(mnull,m1)
+
+```
