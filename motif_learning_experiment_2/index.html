@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Memory Experiment">
+    <meta name="author" content="Shuchen Wu, Eric Schulz">
+    <meta charset="utf-8">
+    <title>Kitty Says</title>
+    <!-- jQuery code-->
+    <script type="text/javascript" src="./js/jquery-1.11.3.js"></script>
+    <script type="text/javascript" src="./js/jquery-ui-1.12.1.min.js"></script>
+    
+    <!-- Bootstrap -->
+    <link href="./js/bootstrap.css" rel="stylesheet" type="text/css">
+
+    <script src="js/instr.js" charset="utf-8"></script>
+    <script src="js/helper.js" charset="utf-8"></script>
+
+    <script src="js/simonsays.js" charset="utf-8"></script>
+    <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script> 
+    <script src="https://code.jquery.com/ui/1.10.4/jquery-ui.min.js"></script> 
+
+    <link href="https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel="stylesheet" type="text/css">
+    <link rel="preloadE" href="./letters/E.png" as="image">
+    <link rel="preloadA" href="./letters/F.png" as="image">
+    <link rel="preloadS" href="./letters/S.png" as="image">
+    <link rel="preloadD" href="./letters/D.png" as="image">
+    <link rel="preloadJ" href="./letters/J.png" as="image">
+    <link rel="preloadK" href="./letters/K.png" as="image">
+    <link rel="preloadL" href="./letters/L.png" as="image">
+ </head>
+
+ <body>
+
+
+<div id="page1" style="display:block;">
+	 <h3><center><font FACE="bookman">Thank you for choosing us, and welcome to our Kitty Says game. </font><center></h3>
+	 	 <h3><center><font FACE="bookman"> In this game, a kitty will instruct you to remember and recall a sequence of colors. </font><center></h3>
+
+			This study is part of a research project conducted
+			by the <a href="http://cpilab.org/" target="_blank">Computational Principles of Intelligence Group</a>
+			at the Max Planck Institute for Biological Cybernetics in Tuebingen, Germany, below is a picture of the town.<br><br>
+			
+			<!-- images of town + Institute here-->
+			<span>
+			<center><img src="coverpage.png.jpg" width="600" ><br><br></center>
+			</span>
+			<br>
+			This is a memory game where you need to remember a sequence of colors and recall them.
+			
+			To be eligible to participate, you <strong> MUST </strong> meet the following criteria:
+			<ol>
+			<li>You are a fluent speaker of English.</li>
+		    <li>You have not previously participated in this experiment.</li> 
+		    <li>You are not color blind. </li>
+			</ol>
+			<b style="color:maroon;">Please use a device with a keyboard, and set the input language to English.
+			Please do not accept this task if you are using a touch screen device, it will not work!</b>
+		  	<br><br>
+
+			<p><b>Confidentiality</b></p>
+			Your participation in this study will remain confidential.
+			Your Prolific ID will NOT be shared with anyone outside the research team.
+		  	<br><br>
+			
+			<p><b>Data protection</b></p>
+			Your data will be anonymized and only used in the manner described in our data protection sheet,
+			available <a href="./Data_protection/Datenschutz.pdf" target="_blank">Here</a>
+			(please do not fill out this sheet!).
+			The following text box summarizes the main points. Please read it carefully and provide consent below:<br>
+			<br>
+			
+			<textarea rows="10" cols="150" readonly>The processing and use of the collected data occurs in a pseudoanonymized form within the scope of the legally prescribed provisions.As a general rule, the storage occurs in the form of answered questionnaires, as well as electronic data, for a duration of 10 years or longer, if this is required by the purpose of the study.
+
+By providing of further personal data in pseudoanonymized form, collected personal data may be used for the preparation of anonymized
+scientific research work and may also be published and used in an anonymized form in medical journals and scientific publications, so that a direct assignment to my person cannot be established.
+
+The information obtained during the course of this study may also be sent in an anonymized form to cooperation partners within the scope of
+the European General Data Protection Regulation for scientific purposes and to cooperation partners outside of the European Union, i.e. to countries with a lower data protection level (this also applies to the USA).
+
+The data collected within the scope of the study can also be used and processed in the future inside of the Max Planck Institute.
+
+I was informed about my rights, that at any time:
+
+I can withdraw this declaration of consent.
+
+I can request information about my stored data and request the correction or blocking of data.
+
+By cancellation of my participation in the study,
+I can request that any personal data of mine collected until that point are immediately deleted or anonymized.
+
+I can request that my personal data are handed out to me or to third parties (if technically feasible).
+
+I herewith declare that:
+
+I have been adequately informed about the collection and processing of my personal data and rights.
+
+I consent to the collection and processing of personal data within the scope of the study and its pseudoanonymized disclosure,
+so that only the persons conducting the study can establish a link between the data and my person.
+
+Agreement:
+
+I agree to participate in this experiment.
+
+I consent to the use of my data described in the Data Protection Information Sheet
+and confirm having received a copy of the Data Protection Sheet.
+
+I consent to data transfer from the MPI for Biological Cybernetics encrypted database to the project-related collaborators:
+inside of the Max Planck Society and affiliated research institutes, or at partnering institutions like the University of Tuebingen.
+			</textarea>      
+			<br>
+			<br>
+			By selecting the consent option below,
+			you acknowledge that you fulfill all of the participation criteria
+			and you agree to your data being used as described.
+			<br>
+			<br>
+	     <button type="button" name="button"; onclick="checkconfigure()"; >I consent to participate</button><br><br>
+<!-- 			<button type="button" name="button" id="buttonConsentForm" onclick="clickStart('page1','page2');">I consent to participate</button>-->
+    </div>
+
+
+
+<!--Ninth page contains results and code word-->
+<div id="pageerrorquit" style="display:none">
+   	<h3><center><font FACE="bookman"> Sorry, our system detected that your browser configuration does not support this experiment. Please try some other HITs. Thank you for your interest! </font></center></h3>
+</div>
+
+
+
+<div id="page2" style="display:none">
+		<br> 
+   	<h3><center><font FACE="bookman">Instructions:</font></center></h3>
+   	<p><center>Please read this information carefully before deciding to proceed further.</center></p>
+   	<p><center>Please turn off any music in the background, and make sure to pay attention. </center></p>
+	<ul>
+	<li> <b>Purpose:</b> To study how people remember sequences.</li>
+	<li> <b>What you will need to do: </b> A kitty will show you a sequence of colors. You will be asked to press the corresponding key on the keyboard to recall the colors. </li>
+	<li> <b>Time required: </b> 40 minutes. </li>
+	<li><b>Compensation:</b> You will receive compensation for your successful completion of the task.</li>
+	<li><b>Commitment:</b> This is a hard task. But we trust you and believe that you will get better and better at it. For this purpose try to concentrate and take up the challenge! </li>
+	<li><b>Participation and withdrawal: </b>Your participation in this study is completely voluntary and you may refuse to participate or you may choose to withdraw at any time without penalty or loss of benefits to which you are otherwise entitled.</li>
+	<li><b>Contact: </b>If you have questions or concerns about your participation or payment, or want to request a summary of research findings, please contact the experimenter by sending an email to: <b>cpilab@tuebingen.mpg.de</b></li>
+	</ul>
+	<p><b>Agreement:  </b></p>
+	<div style="margin-left:30px;margin-right:30px"> 
+	<ul>
+	<li> The nature and purpose of this research have been sufficiently explained and I agree to participate in this study.</li>
+	<li> I understand that I am free to withdraw at any time without incurring any penalty. </li>
+	</ul>
+	<p>Please consent by clicking the button below to continue. Otherwise, please exit the study at this time.</p>
+	<button type="button" name="button"; onclick="clickStart('page2','page3')"; >Agree</button>
+	</div>
+	<br><br>
+</div>
+
+<!--Fifth page contains keyboard layout-->
+<div id="page3" style="display:none">
+	<br>
+		<p><b>Keyboard finger position:</b></p>
+			 <ul>
+			    <li>Only the letters <b>S</b>, <b>D</b>, <b>F</b>, <b>J</b>, <b>K</b>, and <b>L</b> are valid key presses for our Kitty.</li>
+			    <li>Place your hands on the keyboard as shown below. Use one finger for each key. </li>
+			    <li>Please use your left hand to select the options <b>S</b>, <b>D</b> and <b>F</b> . Use your right hand to select <b>J</b>, <b>K</b> and  <b>L</b>. For example, use your left ring finger for <b>S</b>, left middle finger for <b>D</b>, left index finger for <b>F</b>, your right index finger for <b>J</b>, right middle finger for <b>K</b>, and right ring finger for <b>L</b>. </li>
+			    <li> Once you have comfortably positioned your fingers, please do not change them during the task. </li>
+			</ul>
+		<br>
+		<img src="fingerposition.png" width="800" ><br><br>
+		<button type="button" name="button"; onclick="clickStart('page3','page4b')"; >Next</button>  
+	<br>
+</div>
+
+
+
+
+
+<!--Fifth page contains keyboard layout-->
+<div id="page4b" style="display:none">
+
+<br>
+<p><b>Keys and colors:</b></p>
+<ul>
+<li>Below, you can see the colors that will be displayed by our Kitty in the experiment.</li>
+<li>To select the leftmost color you can press <b>S</b>, to select the color next to it you can press <b>D</b>, and so forth.</li>
+</ul>
+<br>
+<img src="whichkey.png" width="600" ><br><br>
+<p><b>How one trial works:</b></p>
+<ul>
+<li>On each trial, the kitty will show you a sequence of 12 colors by lighting up the color one after another. </li>
+<li>The colors are displayed in groups of four. They are separated by a pause in between, marked by paws.  </li>
+<li>One example sequence is shown below. </li>
+<img src="trialexample.png" width="800" ><br><br>
+<li>Try hard to remember all colors in the right order.</li>
+<li>After the kitty is finished with showing you the colors, we ask you to recall the color sequence by pressing the keys corresponding to the colors sequentially. </li>
+<li>After you are finished with recalling the sequence, you will see a score on how well you have done in this particular trial. </li>
+<li>Your compensation will be calculated based on your performance in the task. </li> 
+<li>The performance is calculated using 
+<ul>
+<li> Your total score, which is computed as the sum of the individual scores in each trial and 
+<li> Your response times, i.e., how fast you were in responding. 
+</ul>
+</li>
+<li>On the next page you will try out an example.</li> 
+</ul>
+<br>
+<!-- <button type="button" name="button"; onclick="clickStart('page4b','pagetryout')"; >Go to Example</button>  
+ -->
+ <button type="button" name="button"; onclick="tryout()"; >Go to Example</button>  
+<br>
+</div>
+
+<div id="pagetryout" style="display:none">
+	<br>
+	<p>Here is one example</p>
+	<img src="say.png" width="300" height="200" align="center"><br><br>
+	<br>
+	<button type="button" name="button"; onclick="nextblock()"; >Start</button>  
+	<br>
+</div>
+
+
+<div id="pagedemofeedback" style="display:none">
+	<br>
+	<br>
+	<div id="feedbackdemo"> Your received 10 out of 10 in this trial.  </div>
+	<br>
+	<br>
+	<button type="button" name="button"; onclick="clickStart('pagedemofeedback', 'page5')"; > Next</button>  
+	<br>
+</div>
+<!--Sixth page contains comprehension check-->
+<div id="page5" style="display:none">
+
+    <fieldset>
+    	<h3><center><font FACE="bookman">Now you have tried out the task, before proceeding, we ask you to answer a few questions about this study</font></center></h3>
+	    <fieldset style="float:none;width:800px;margin:5px">
+	        What is your task in this study?<br>
+	        <input type="radio" name="q1"  > Press the instructed key on the keyboard. <br>
+	        <input type="radio" name="q1" id="icheck1" > Press a sequence of keys according to the sequence of colors that the kitty showed you. <br>
+	        <input type="radio" name="q1" > I do not know.<br>
+	    </fieldset>
+				<br>
+	    <fieldset style="float:none;width:800px;margin:5px">
+	        Which keys can you press?<br>
+	        <input type="radio" name="q2"> Q,W,E and I,O,P.<br>
+	        <input type="radio" name="q2"  id="icheck2">S,D,F and J,K,L.<br>
+	        <input type="radio" name="q2">I do not know.<br>
+	    </fieldset>
+	    	<br>
+	    <fieldset style="float:none;width:800px;margin:5px">
+	    	What type of behavior is permitted during the experiment and will not induce a loss of the compensation for your hard work? <br>
+	        <input type="radio" name="q3"               >  
+	         Playing music in the background.<br>
+	        <input type="radio" name="q3"               > 
+	         Multitasking. <br>
+	        <input type="radio" name="q3" id="icheck3"                > 
+	         Paying full attention and actively participating in the experiment. <br>
+	        <input type="radio" name="q3" > 
+	         Exiting the experiment before it is completed.<br>
+	    </fieldset>
+    </fieldset>
+    <br><br><br><br>
+    <p>You will only be directed to the next page if you manage to answer all of the questions correctly. </p>
+    <button type="button" name="button"; onclick="instructioncheck()"; >Check answers</button>  
+</div>
+
+
+<!-- The main key-press instruction page-->
+<div id="keypresspage" style="display:none">
+	<center>
+		<b><h3><div id="remain">Number of trials left: 100</div></h3></b>
+		<div id='Chi' ></div>
+		<div id='cue'> '<p><span style="font-size:200%;color:black;"></span></p></div>
+		<img id= 'S' src="letters/S.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'D' src="letters/D.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'F' src="letters/F.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'J' src="letters/J.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'K' src="letters/K.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'L' src="letters/L.png" width="800" height="150" border="0" style="display:none">
+		<img id= 'E' src="letters/E.png" width="800" height="150" border="0" style="display:none">
+		<!-- <br><br> -->
+<!-- 		<div id='letter'></div> -->
+		</div>
+	</center>   
+</div>
+
+
+
+<!-- The main key-press instruction page-->
+<div id="keypresspage" style="display:none">
+	<center>
+		<b><h3><div id="remain">Number of trials left: 100</div></h3></b>
+		<div id='Chi' ></div>
+		<div id='cue'> '<p><span style="font-size:200%;color:black;"></span></p></div>
+		<div id='letter'></div>
+		</div>
+	</center>   
+</div>
+
+
+
+<div id="recallpage" style="display:none">
+	<center>
+		<p> Try to remember what the kitty said and try to respond as <b>FAST and ACCURATELY</b> as possible. </p>
+		<br>        
+		<button type="button" name="button"; onclick="recalltrial()"; >Start Recall</button>  
+
+		</div>
+	</center>   
+</div>
+
+<div id="pagenormal" style="display:none">
+	<br>
+	<img src="ready.png" width="230" height="300" align = "center"><br><br>
+	<p>Are you feeling concentrated? Ready for the challenge? </p>
+	<p> Try to remember what the kitty said and try to respond as <b>FAST and ACCURATELY</b> as possible. </p>
+	<p>Your bonus is calculated based on your speed and accuracy. </p>
+	<br>
+		<p><b>Press Space Key to Start.</b></p>
+<!-- 	<button type="button" name="button"; onclick="nextblock()"; >Start</button>  
+ -->	<br>
+</div>
+
+
+<div id="pagetrialfeedback" style="display:none">
+	<br>
+	<br>
+	<div id="feedbacktrial"> Your received 10 out of 10 in this trial.  </div>
+	<br>
+	<p> <b>Press Space Key to Continue. </b></p>
+<!-- 	<button type="button" name="button"; onclick="nexttrial()"; > Next Sequence </button>  
+ --><br>
+</div>
+
+
+
+<div id="pageblockfeedback" style="display:none">
+	<br>
+	<br>
+	<div id="feedbackblock"> Your received 10 out of 10 in this trial.  </div>
+	<br>
+	<p> <b>Press Space Key to Continue. </b></p>
+<!-- 	<button type="button" name="button"; onclick="nextblock()"; > Next Sequence </button>  
+ -->	<br>
+</div>
+
+
+	<!--Eighth page contains demographics-->
+<div id="page7" style="display:none">
+	<h1> <font size="4">Congratulations, you have reached the end of this experiment!</font> </h1>
+	<img src="ready.png" width="230" height="300" align = "center"><br><br>
+	<h1> <font size="4">Please tell us something about yourself.</font> </h1>
+	<fieldset>
+		 <br>				
+		<div style="float:left;width:400px;margin:5px">
+			How old are you?<br>
+			<input id="age" type="radio" name="age" onclick="setage(20)" >18-25<br>
+			<input id="age" type="radio" name="age" onclick="setage(30)" >26-35<br>
+			<input id="age" type="radio" name="age" onclick="setage(40)" >36-50<br>
+			<input id="age" type="radio" name="age" onclick="setage(50)" >above 50<br>
+		</div>
+		<div style="float:left;width:400px;margin:5px">
+			What's your gender?<br>
+			<input id="gender" type="radio" name="gender" onclick="setgender(0)" >Female<br>
+			<input id="gender" type="radio" name="gender" onclick="setgender(1)" >Male<br>
+		</div>
+	</fieldset>
+      <div>
+    <form>
+	    If you have feedback on the experiment, please let us know here:<br><br>
+    <input type="text" id="processDescription"><br>
+    </form>
+    </div>
+
+	<div style="width:50px;margin:0 auto">
+		<button type="button" name="button"; onclick="mysubmit()"; >Done</button>
+	</div>
+</div>
+
+
+<!--Ninth page contains results and code word-->
+<div id="page8" style="display:none">
+   	<h3><center><font FACE="bookman">Your performance and reward</font></center></h3>
+   <div id="money"></div><br>
+   <p>We greatly appreciate your participation and contribution to our research.</p>
+   <p>Meanwhile, we hope that your brain becomes fitter after this workout.</p>
+   <p>Please leave this page after 5 minutes allow sufficient time for the data to be recorded, otherwise it might induce a loss of your compensation or bonuses due to connection issues.</p><br>
+   <p>Your Prolific Completion Code is:<br> <b>C159DZ6P</b></p><br>
+   <p>In case you have any questions, or would like to follow up on the findings, please contact us via our Prolific account or write an email to: <b>cpilab@tuebingen.mpg.de</b></p>
+</div>
+
+ </body>
+
+ </html>
+
+
+
