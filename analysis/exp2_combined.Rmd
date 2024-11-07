@@ -14,14 +14,14 @@ library(lmerTest)
 ```
 
 ```{r}
-dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/data.csv')
+dat<-read.csv('../data/simonsays_ex2/data.csv')
 print(c('n motif = ', length(unique(dat[dat$traincondition=='m1',]$ID)), ', n  indep = ', length(unique(dat[dat$traincondition=='ind',]$ID))))
 dat$trialposition<-rep((1:12),length(unique(dat$ID))*64)
 dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
 dat$repetition<-rep(FALSE, nrow(dat))
 dat$immediaterepetition<-rep(FALSE, nrow(dat))
 
-dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+dat_a<-read.csv('../data/simonsays_ex2/accdata.csv')
 
 dat_a$repetition<-rep(FALSE, nrow(dat_a)) # initialize data column that detects exact sequence repetition
 dat_a$immediaterepetition<-rep(FALSE, nrow(dat_a))
@@ -65,6 +65,10 @@ anova(mnull, malternative)
 ```
 
 ```{r}
+r_squared <- performance::r2(malternative)
+print(r_squared)
+conf_intervals <- confint(malternative, method = "boot")
+print(conf_intervals)
 summary(malternative)
 ```
 ```{r}
@@ -86,6 +90,8 @@ p1 <- ggplot(dpgroups, aes(y=m, x=condition, fill=condition)) +
   #points
   geom_point()+
   #error bars +/- SEs
+  geom_jitter(data = dpsubjects, aes(y = meanacc, x = condition), 
+              width = 0.1, size = 2, color = "black", alpha = 0.3) +
   geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
   scale_y_continuous(limits = c(0, 1), expand = c(0, 0))+
 
@@ -113,7 +119,7 @@ p1
 ```{r}
 se<-function(x){sd(x)/sqrt(length(x))}
 
-dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/data.csv')
+dat<-read.csv('../data/simonsays_ex2/data.csv')
 dat$trialposition<-rep((1:12),length(unique(dat$ID))*64)
 dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
 
@@ -130,7 +136,7 @@ dat_test$tv3 <- rep(subset(subset(dat, blockcollect == 'test'),trialposition == 
 # tested variable is the same as trained variable for the control group
 dat_test$coincide<- ifelse((dat_test$traincondition=='ind') & (dat_test$lv1==dat_test$tv1) & (dat_test$lv2==dat_test$tv2) & (dat_test$lv3==dat_test$tv3),1,0) 
 
-dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+dat_a<-read.csv('../data/simonsays_ex2/accdata.csv')
 
 dat_a_test<-subset(dat_a, blockcollect == 'test' & trialcollect<=24)
 dat_a_test[c('coincide', 'lv1', 'lv2', 'lv3', 'tv1', 'tv2', 'tv3')] <- subset(dat_test, (trialposition ==1),select = c(coincide,lv1,lv2,lv3,tv1,tv2,tv3))
@@ -154,6 +160,8 @@ p5 <- ggplot(dpgroupind, aes(y=m, x=transfertype, fill=transfertype)) +
   stat_summary(fun = mean, geom = "bar", position = "dodge", color='black', width=0.5) + 
   #points
   geom_point()+
+  geom_jitter(data = msubjects, aes(y = meanacc, x = transfertype), 
+              width = 0.1, size = 2, color = "black", alpha = 0.3) +
   #error bars +/- SEs
   geom_errorbar(aes(ymin=m-se, ymax=m+se),color='black', width = .25, position=position_dodge((width=0.9))) +
   #ylab
@@ -181,7 +189,7 @@ p5
 
 
 ```{r}
-dat_m<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_2.csv')
+dat_m<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall.csv')
 dpsubjects<-ddply(dat_m,.(ID,blockcollect,condition), summarize, meanacc=mean(correctcollect))
 dat_m$traincondition = rep(subset(dpsubjects, blockcollect == 'train')$condition, each=64)
 
@@ -201,7 +209,12 @@ mnull<-lmer(correctcollect~1+(1|ID), data=dat_m_train)
 malternative<-lmer(correctcollect~condition+(1|ID), data=dat_m_train)
 #is the alternative model significantly better than the null model
 anova(mnull, malternative)
+summary(malternative)
 
+r_squared <- performance::r2(malternative)
+print(r_squared)
+conf_intervals <- confint(malternative, method = "boot")
+print(conf_intervals)
 
 ```
 
@@ -242,7 +255,7 @@ p2 <- ggplot(dpgroups, aes(y=m, x=condition, fill=condition)) +
   
   #title
   ggtitle("Model Prediction")
-  ggsave(file = "./fig/exp2/simulationtrainacc.svg")                       # Export ggplot2 plot
+  #ggsave(file = "./fig/exp2/simulationtrainacc.svg")                       # Export ggplot2 plot
 
 
 #show
@@ -261,6 +274,11 @@ malternative<-lmer(correctcollect~traincondition+(1|ID), data=dat_m_test)
 #is the alternative model significantly better than the null model
 anova(mnull, malternative)
 summary(malternative)
+
+r_squared <- performance::r2(malternative)
+print(r_squared)
+conf_intervals <- confint(malternative, method = "boot")
+print(conf_intervals)
 ```
 
 
@@ -299,14 +317,14 @@ p6 <- ggplot(dpgroupind, aes(y=m, x=transfertype, fill=transfertype)) +
   
   #title
   ggtitle("Model Prediction")
-  ggsave(file = "./fig/exp2/simulationtestacc.svg")                       # Export ggplot2 plot
+  #ggsave(file = "./fig/exp2/simulationtestacc.svg")                       # Export ggplot2 plot
 
 
 
 p6
 ```
 ```{r}
-dat<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/data.csv')
+dat<-read.csv('../data/simonsays_ex2/data.csv')
 dat$logRT <-log(dat$timecollect)
 dat$trialposition<-rep((1:12),length(unique(dat$ID))*64) # keypress position
 dat$positioncorrect<-ifelse(dat$recallcollect == dat$instructioncollect,1,0)
@@ -314,7 +332,7 @@ dat$postmistake<-c(0,dat$positioncorrect[0:(length(dat$positioncorrect)-1)])# ma
 dat$chunkbeginning<-rep(c(1,0,0,0,1,0,0,0,1,0,0,0),length(unique(dat$ID))*64) # keypress position
 dat$chunkbeginningorend<-rep(c(1,0,0,1,1,0,0,1,1,0,0,1),length(unique(dat$ID))*64) # keypress position
 dat$chunkend<-rep(c(0,0,0,1,0,0,0,1,0,0,0,1),length(unique(dat$ID))*64) # keypress position
-dat_a<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+dat_a<-read.csv('../data/simonsays_ex2/accdata.csv')
 dat_a_train <-subset(dat_a, blockcollect=='train')
 dat_a$logRT <-log(dat_a$timecollect)
 dat$repetition<-rep(FALSE, nrow(dat))
@@ -412,38 +430,46 @@ dat_train$chunkbeginningorend<- ifelse((dat_train$chunkbeginningorend == 1), TRU
 
 
 #null model doesn't contain condition, but fixed and random intercept
-mnull<-glmer(positioncorrect ~ 1 + (1|ID) , data=dat_train, family = binomial)
-m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_train, family = binomial)
-m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_train, family = binomial)
-m3<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+(1|ID) , data=dat_train, family = binomial)
-m4<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
-#m5<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+ variableposition + (1|ID), data=dat_train, family = binomial)
-m6<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep + traincondition + (1|ID), data=dat_train, family = binomial)
+# mnull<-glmer(positioncorrect ~ 1 + (1|ID) , data=dat_train, family = binomial)
+# m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_train, family = binomial)
+# m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_train, family = binomial)
+# m3<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+(1|ID) , data=dat_train, family = binomial)
+# m4<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_train, family = binomial)
+# #m5<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+ variableposition + (1|ID), data=dat_train, family = binomial)
+# m6<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep + traincondition + (1|ID), data=dat_train, family = binomial)
 m8<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1|ID), data=dat_train, family = binomial)
 
-anova(mnull, m1)
-summary(m1)
-anova(m1, m2)
-summary(m2)
-anova(m2, m3)
-summary(m3)
-anova(m3,m4)
-summary(m4)
-anova(m4,m6)
-summary(m6)
-anova(m6,m8)
+# anova(mnull, m1)
+# summary(m1)
+# anova(m1, m2)
+# summary(m2)
+# anova(m2, m3)
+# summary(m3)
+# anova(m3,m4)
+# summary(m4)
+# anova(m4,m6)
+# summary(m6)
+# anova(m6,m8)
 summary(m8)
+r_squared <- r2(m8)
+print(r_squared)
+conf_intervals <- confint(m8, method = "boot")
+print(conf_intervals)
 ```
 ```{r}
-m80<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1|ID), data=dat_train, family = binomial)
+#m80<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1|ID), data=dat_train, family = binomial)
 # m81<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1 + trialcollect|ID), data=dat_train, family = binomial) # does not converge
 
 m82<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1 + trialposition|ID), data=dat_train, family = binomial)
 
 # m83<-glmer(positioncorrect~ 1 + trialposition+ trialcollect*traincondition + chunkbeginningorend + nrep + (1 + trialposition + trialcollect|ID), data=dat_train, family = binomial) # does not converge
 
-anova(m80, m82)
+#anova(m80, m82)
 summary(m82)
+r_squared <- performance::r2(m82)
+print(r_squared)
+conf_intervals <- confint(m82, method = "boot")
+print(conf_intervals)
 ```
 
 
@@ -459,7 +485,7 @@ library(sjstats) #use for r2 functions
 p3 <- sjPlot::plot_model(m82, terms = c('trainconditionm1', 'trialcollect:trainconditionm1','chunkbeginningorendTRUE'), transform = NULL,show.values=TRUE, show.p=FALSE, show.intercept = TRUE, show.zeroinf = TRUE, value.offset = 0.3, show.data= TRUE, vline.color = 'gray',color = 'blue', axis.labels = c('Variable x Trial','Chunk Boundary','Variable'), title="Regression Coefficients") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +   theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"),legend.position = "top") 
 ggsave(file = "./fig/exp2/trainlmer.svg")                       # Export ggplot2 plot
 #axis.labels=c("Group M1", "Group M2", "Trial collect", "Recall position", "Chunk bundary", "N repetition", "M1 x Trial collect", "M2 x Trial collect"),
-sjPlot:: tab_model(m8, file = "")
+sjPlot:: tab_model(m82,transform = NULL )
 
 
 p3 
@@ -491,28 +517,33 @@ dat_test$nrep<-scale(dat_test$nrep, scale = FALSE)
 dat_train$chunkbeginningorend<- ifelse((dat_train$chunkbeginningorend == 1), TRUE, FALSE)
 dat_test$chunkbeginningorend<-as.factor(dat_test$chunkbeginningorend)
 
-mnull<-glmer(positioncorrect ~ 1 + (1|ID) , data=dat_test, family = binomial)
-m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_test, family = binomial)
-m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_test, family = binomial)
-m3<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+(1|ID) , data=dat_test, family = binomial)
-m4<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_test, family = binomial)
+# mnull<-glmer(positioncorrect ~ 1 + (1|ID) , data=dat_test, family = binomial)
+# m1<-glmer(positioncorrect~ 1 + trialposition +(1|ID), data=dat_test, family = binomial)
+# m2<-glmer(positioncorrect~ 1 + trialposition + trialcollect +(1|ID), data=dat_test, family = binomial)
+# m3<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+(1|ID) , data=dat_test, family = binomial)
+# m4<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+(1|ID), data=dat_test, family = binomial)
 #m5<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend+nrep+ variableposition + (1|ID), data=dat_test, family = binomial)
 m6<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial)
 #m7<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep + variableposition*traincondition + (1|ID), data=dat_test, family = binomial)
-m8<-glmer(positioncorrect~ 1 + trialposition + chunkbeginningorend + nrep + trialcollect*traincondition + (1|ID), data=dat_test, family = binomial)
+# m8<-glmer(positioncorrect~ 1 + trialposition + chunkbeginningorend + nrep + trialcollect*traincondition + (1|ID), data=dat_test, family = binomial)
 
-anova(mnull, m1)
-summary(m1)
-anova(m1, m2)
-summary(m2)
-anova(m2, m3)
-summary(m3)
-anova(m3,m4)
-summary(m4)
-anova(m4,m6)
+# anova(mnull, m1)
+# summary(m1)
+# anova(m1, m2)
+# summary(m2)
+# anova(m2, m3)
+# summary(m3)
+# anova(m3,m4)
+# summary(m4)
+# anova(m4,m6)
 summary(m6)
 
 m6<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial)
+
+r_squared <- performance::r2(m6)
+print(r_squared)
+conf_intervals <- confint(m6, method = "boot")
+print(conf_intervals)
 ```
 
 ```{r}
@@ -520,12 +551,17 @@ m60<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningoren
 
 #m61<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1 + |ID), data=dat_test, family = binomial) # did not work
 
-m62<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial) #
-
-m63<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial)
+# m62<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial) #
+# 
+# m63<-glmer(positioncorrect~ 1 + trialposition+ trialcollect + chunkbeginningorend + nrep  + traincondition + (1|ID), data=dat_test, family = binomial)
 
 summary(m60)
-anova(m60, m63)
+# anova(m60, m63)
+
+r_squared <- performance::r2(m60)
+print(r_squared)
+conf_intervals <- confint(m60, method = "boot")
+print(conf_intervals)
 
 ```
 
@@ -542,13 +578,13 @@ p7 <- sjPlot::plot_model(m60, terms = c('trainconditionm1', 'chunkbeginningorend
 ggsave(file = "./fig/exp2/testlmer.svg")                       # Export ggplot2 plot
 
 #axis.labels=c("Group M1", "Group M2", "Trial collect", "Recall position", "Chunk bundary", "N repetition", "M1 x Trial collect", "M2 x Trial collect"),
-sjPlot:: tab_model(m6)
+sjPlot:: tab_model(m60, transform = NULL)
 
 p7
 ```
 
 ```{r}
-dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+dat_subj<-read.csv('../data/simonsays_ex2/accdata.csv')
 dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
 empirical_acc<-ddply(dat_subj, .(trial,condition), summarize, m=mean(correctcollect))
 
@@ -558,20 +594,20 @@ linearmodel <- lm(m~trial, data=empirical_acc)
 RSlinearmodel<- summary(linearmodel)$r.square
 empirical_acc <- empirical_acc$m
 
-dat_normal<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall.csv')
+dat_normal<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall.csv')
 dat_normal$trial<-rep((1:64),length(unique(dat_normal$ID)))
 dat_normal<-ddply(dat_normal, .(trial,condition), summarize, m=mean(correctcollect))
 
 motif_learning <- dat_normal[dat_normal$trial<=40,]$m
 conditions <-dat_normal[dat_normal$trial<=40,]$condition
 
-dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_associative_learning.csv')
+dat_associative_learning<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall_associative_learning.csv')
 dat_associative_learning$trial<-rep((1:64),length(unique(dat_associative_learning$ID)))
 dat_associative_learning<-ddply(dat_associative_learning, .(trial,condition), summarize, m=mean(correctcollect))
 
 associative_learning<-dat_associative_learning[dat_associative_learning$trial<=40,]$m
 
-dat_projectional_lesioned<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_leison_variable_motif.csv')
+dat_projectional_lesioned<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall_leison_variable_motif.csv')
 dat_projectional_lesioned$trial<-rep((1:64),length(unique(dat_projectional_lesioned$ID)))
 dat_projectional_lesioned<-ddply(dat_projectional_lesioned, .(trial,condition), summarize, m=mean(correctcollect))
 
@@ -613,14 +649,46 @@ p4 <- ggplot(modelcomparison, aes(y=value, x=reorder(name,+value))) +
   
   #title
   ggtitle("Model Comparison")
-  ggsave(file = "./fig/exp2/modelcomparison.svg")                       # Export ggplot2 plot
+  #ggsave(file = "./fig/exp2/modelcomparison.svg")                       # Export ggplot2 plot
 
 p4
 ```
 
 
 ```{r}
-dat_subj<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/accdata.csv')
+# Load necessary package
+library(boot)
+
+# Define a function to calculate R squared for a model
+rsquared_bootstrap <- function(data, indices, formula) {
+  d <- data[indices, ]  # Resample data
+  model <- lm(formula, data = d)
+  return(summary(model)$r.squared)
+}
+
+# Calculate 95% CI for motif_learning model
+boot_motif <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ motif_learning)
+ci_motif <- boot.ci(boot_motif, type = "perc")
+
+# Calculate 95% CI for associative_learning model
+boot_assoc <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ associative_learning)
+ci_assoc <- boot.ci(boot_assoc, type = "perc")
+
+# Calculate 95% CI for sequence_learning model
+boot_seq <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ sequence_learning)
+ci_seq <- boot.ci(boot_seq, type = "perc")
+
+# Print results
+cat("95% CI for R-squared of motif_learning:", ci_motif$percent[4:5], "\n")
+cat("95% CI for R-squared of associative_learning:", ci_assoc$percent[4:5], "\n")
+cat("95% CI for R-squared of sequence_learning:", ci_seq$percent[4:5], "\n")
+
+```
+
+
+
+```{r}
+dat_subj<-read.csv('../data/simonsays_ex2/accdata.csv')
 dat_subj$trial<-rep((1:64),length(unique(dat_subj$ID)))
 traincondition<-dat_subj$traincondition
 
@@ -631,7 +699,7 @@ linearmodel <- lm(m~trial, data=empirical_acc)
 RSlinearmodel<- summary(linearmodel)$r.square
 empirical_acc <- empirical_acc$m
 
-dat_normal<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall.csv')
+dat_normal<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall.csv')
 dat_normal$trial<-rep((1:64),length(unique(dat_normal$ID)))
 
 dat_normal$traincondition<-traincondition
@@ -640,7 +708,7 @@ dat_normal<-ddply(dat_normal, .(trial,traincondition), summarize, m=mean(correct
 conditions <-dat_normal[dat_normal$trial>40,]$traincondition
 motif_learning <- dat_normal[dat_normal$trial>40,]$m
 
-dat_associative_learning<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_associative_learning.csv')
+dat_associative_learning<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall_associative_learning.csv')
 dat_associative_learning$traincondition<-traincondition
 
 dat_associative_learning$trial<-rep((1:64),length(unique(dat_associative_learning$ID)))
@@ -648,7 +716,7 @@ dat_associative_learning<-ddply(dat_associative_learning, .(trial,traincondition
 
 associative_learning<-dat_associative_learning[dat_associative_learning$trial>40,]$m
 
-dat_projectional_lesioned<-read.csv('/Users/swu/Desktop/research/motif_learning/data/simonsays_ex2/simulation_data_model_transition_recall_leison_variable_motif.csv')
+dat_projectional_lesioned<-read.csv('../data/simonsays_ex2/simulation_data_model_transition_recall_leison_variable_motif.csv')
 dat_projectional_lesioned$trial<-rep((1:64),length(unique(dat_projectional_lesioned$ID)))
 dat_projectional_lesioned<-ddply(dat_projectional_lesioned, .(trial,traincondition), summarize, m=mean(correctcollect))
 
@@ -690,10 +758,42 @@ p8 <- ggplot(modelcomparison, aes(y=value, x=reorder(name,+value))) +
   
   #title
   ggtitle("Model Comparison")
-  ggsave(file = "./fig/exp2/modelcomparisontest.svg")                       # Export ggplot2 plot
+  #ggsave(file = "./fig/exp2/modelcomparisontest.svg")                       # Export ggplot2 plot
 
 p8
+
 ```
+
+```{r}
+# Load necessary package
+library(boot)
+
+# Define a function to calculate R squared for a model
+rsquared_bootstrap <- function(data, indices, formula) {
+  d <- data[indices, ]  # Resample data
+  model <- lm(formula, data = d)
+  return(summary(model)$r.squared)
+}
+
+# Calculate 95% CI for motif_learning model
+boot_motif <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ motif_learning)
+ci_motif <- boot.ci(boot_motif, type = "perc")
+
+# Calculate 95% CI for associative_learning model
+boot_assoc <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ associative_learning)
+ci_assoc <- boot.ci(boot_assoc, type = "perc")
+
+# Calculate 95% CI for sequence_learning model
+boot_seq <- boot(data = dfmc, statistic = rsquared_bootstrap, R = 1000, formula = empirical_acc ~ sequence_learning)
+ci_seq <- boot.ci(boot_seq, type = "perc")
+
+# Print results
+cat("95% CI for R-squared of motif_learning:", ci_motif$percent[4:5], "\n")
+cat("95% CI for R-squared of associative_learning:", ci_assoc$percent[4:5], "\n")
+cat("95% CI for R-squared of sequence_learning:", ci_seq$percent[4:5], "\n")
+
+```
+
 ```{r,fig.width = 15,dpi = 200}
 library(patchwork)
 patchwork<-(p1 | p2 | p3 | p4)/(p5 | p6 | p7 | p8) + plot_layout(nrow = 2) +  plot_annotation(tag_levels = 'a') + plot_layout(widths = c(3,3,6,10), heights = c(3,3))
